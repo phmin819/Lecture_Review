@@ -1,8 +1,8 @@
 """
 [database.py]
-역할: Neon PostgreSQL 데이터베이스와의 연결 및 세션 관리
-설명: .env 파일의 접속 주소를 읽어와 SQLAlchemy 엔진을 생성하고, 
-      각 API 요청 시 DB에 접근할 수 있는 세션을 제공
+역할: Neon PostgreSQL 데이터베이스 연결 및 세션 관리
+설명: .env의 DATABASE_URL을 사용하여 SQLAlchemy 엔진을 생성하고,
+     FastAPI의 Dependency Injection(Depends)을 통해 DB 세션을 제공함.
 """
 
 import os
