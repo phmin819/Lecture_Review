@@ -8,6 +8,8 @@ Backend : FastAPI(Python)
 역할 : Rest API 서버 구축, 로그인 강의 후기 데이터 처리
 선정이유 : FastAPI는 Python 기반으로 간결한 코드로 빠르게 API를 개발할 수 있으며, 비동기 처리를 지원하여 성능이 우수하다.
 
-DataBase : MySQL (Vue에서 사용)
-역할 : 사용자, 강의, 후기 데이터 저장
-선정이유 : MySQL은 대표적인 관계형 데이터베이스로 안정성이 높고, 테이블 간 관계를 명확하게 표현할 수 있어 본 프로젝트 구조에 적합하다.
+DataBase : Neon (PostgreSQL)
+역할 : 사용자, 강의, 후기 데이터 저장 및 관리
+선정이유 : Neon은 PostgreSQL 기반의 클라우드 데이터베이스로 별도의 서버 구축 없이 빠르게 사용할 수 있으며 확장성과 관리 편의성이 뛰어나다.
+
+시스템 구조 : Frontend (Vue.js) → Backend (FastAPI) → Database (Neon PostgreSQL)
