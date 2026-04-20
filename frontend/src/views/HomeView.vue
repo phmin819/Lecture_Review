@@ -14,32 +14,46 @@
       <p>수강신청 기간, 학생들이 많이 찾은 강의입니다.</p>
 
       <div class="tags">
-        <span>💻 데이터 구조</span>
-        <span>🎨 현대미술</span>
+        <span v-for="lecture in lectures.slice(0,2)" :key="lecture.lecture_id">
+          {{ lecture.lecture_name }}
+        </span>
       </div>
     </div>
 
     <!-- 강의 리스트 -->
-    <div class="lecture" v-for="lecture in lectures" :key="lecture.id">
+    <div 
+      class="lecture" 
+      v-for="lecture in lectures" 
+      :key="lecture.lecture_id"
+    >
       <div>
-        <h4>{{ lecture.name }}</h4>
-        <p>{{ lecture.prof }}</p>
+        <h4>{{ lecture.lecture_name }}</h4>
+        <p>{{ lecture.professor_name }}</p>
       </div>
-      <span class="rating">⭐ {{ lecture.rating }}</span>
+      <span class="rating">⭐ 4.5</span>
     </div>
 
   </div>
 </template>
 
 <script>
+import axios from "axios";
+
 export default {
   data() {
     return {
-      lectures: [
-        { id: 1, name: '데이터 구조 및 알고리즘', prof: '김개발', rating: 4.8 },
-        { id: 2, name: '현대미술의 이해', prof: '이예술', rating: 4.5 },
-        { id: 3, name: '스타트업 경영론', prof: '박창업', rating: 3.9 }
-      ]
+      lectures: [] // 🔥 서버 데이터로 채움
+    }
+  },
+
+  async created() {
+    try {
+      const res = await axios.get("http://127.0.0.1:8000/lectures");
+      console.log(res.data);
+      this.lectures = res.data;
+    } catch (err) {
+      console.error(err);
+      alert("강의 데이터를 불러오지 못했습니다");
     }
   }
 }
