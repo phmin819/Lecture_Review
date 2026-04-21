@@ -1,7 +1,7 @@
 <template>
   <div class="wrapper">
     <div class="login-box">
-      <h2>📚 명지전문대 강의 후기</h2>
+      <h2> 명지전문대 강의 후기</h2>
       <h2>로그인</h2>
 
       <div class="input-group">

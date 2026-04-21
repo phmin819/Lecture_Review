@@ -5,7 +5,7 @@
       <button v-else class="auth-btn logout" @click="logout">로그아웃</button>
     </header>
     
-    <h1 class="logo">📚 명지전문대</h1>
+    <h1 class="logo"> 명지전문대 강의 후기</h1>
     <p class="subtitle">당신의 완벽한 시간표를 위한 최소한의 강의 기록.</p>
 
     <input class="search" placeholder="과목명, 교수명, 코드 검색..." />
@@ -17,7 +17,7 @@
 
     <div v-else>
       <div class="card highlight">
-        <h3>🔥 오늘의 인기 강의</h3>
+        <h3> 오늘의 인기 강의</h3>
         <p>수강신청 기간, 학생들이 많이 찾은 강의입니다.</p>
         <div class="tags">
           <span v-for="lecture in lectures.slice(0,2)" :key="lecture.lecture_id">

@@ -25,7 +25,7 @@ export default {
   data() {
     return {
       username: '',
-      email: '',     // 🔥 추가
+      email: '',     //  추가
       password: ''
     }
   },
