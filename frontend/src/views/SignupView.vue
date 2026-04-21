@@ -1,6 +1,7 @@
 <template>
   <div class="wrapper">
     <div class="signup-box">
+    <h2>📚 명지전문대 강의 후기</h2>
       <h2>회원가입</h2>
 
       <input v-model="username" placeholder="아이디" />
