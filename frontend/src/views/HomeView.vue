@@ -5,19 +5,27 @@
       <button v-else class="auth-btn logout" @click="logout">로그아웃</button>
     </header>
     
-    <h1 class="logo"> 명지전문대 강의 후기</h1>
+    <h1 class="logo">명지전문대 강의 후기</h1>
     <p class="subtitle">당신의 완벽한 시간표를 위한 최소한의 강의 기록.</p>
 
-    <input class="search" placeholder="과목명, 교수명, 코드 검색..." />
+    <form class="search-form" @submit.prevent>
+      <label for="search" class="visually-hidden">강의 검색</label>
+      <input
+        id="search"
+        class="search"
+        placeholder="과목명, 교수명, 코드 검색..."
+        aria-label="강의 검색"
+      />
+    </form>
 
-    <div v-if="loading" class="loading-container">
-      <div class="spinner"></div>
+    <div v-if="loading" class="loading-container" role="status" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
       <p class="loading-text">강의 정보를 불러오고 있습니다...</p>
     </div>
 
     <div v-else>
       <div class="card highlight">
-        <h3> 오늘의 인기 강의</h3>
+        <h2>오늘의 인기 강의</h2>
         <p>수강신청 기간, 학생들이 많이 찾은 강의입니다.</p>
         <div class="tags">
           <span v-for="lecture in lectures.slice(0,2)" :key="lecture.lecture_id">
@@ -26,20 +34,22 @@
         </div>
       </div>
 
-      <div 
-        class="lecture" 
-        v-for="lecture in lectures" 
-        :key="lecture.lecture_id"
-        @click="$router.push(`/lecture/${lecture.lecture_id}`)"
-        style="cursor: pointer;"
-      >
-        <div>
-          <h4>{{ lecture.lecture_name }}</h4>
-          <p>{{ lecture.professor_name }}</p>
-        </div>
-        <span class="rating">
-          ⭐ {{ lecture.avg_rating > 0 ? lecture.avg_rating : '평점 없음' }}
-        </span>
+      <div class="lecture-list">
+        <button
+          v-for="lecture in lectures"
+          :key="lecture.lecture_id"
+          type="button"
+          class="lecture"
+          @click="$router.push(`/lecture/${lecture.lecture_id}`)"
+        >
+          <div>
+            <h3>{{ lecture.lecture_name }}</h3>
+            <p>{{ lecture.professor_name }}</p>
+          </div>
+          <span class="rating">
+            ⭐ {{ lecture.avg_rating > 0 ? lecture.avg_rating : '평점 없음' }}
+          </span>
+        </button>
       </div>
     </div>
   </div>
@@ -93,11 +103,15 @@ export default {
 .search { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #f3f3f3; margin-bottom: 20px; box-sizing: border-box; }
 .card { background: #eef2ff; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
 .tags span { background: white; padding: 5px 10px; border-radius: 10px; margin-right: 10px; font-size: 14px; }
-.lecture { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #fafafa; border-radius: 10px; margin-bottom: 10px; border: 1px solid #eee; transition: 0.2s; }
-.lecture:hover { background: #f0f0f0; transform: translateY(-2px); }
-.lecture h4 { margin: 0 0 5px 0; }
+.lecture { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #fafafa; border-radius: 10px; margin-bottom: 10px; border: 1px solid #eee; transition: 0.2s; width: 100%; text-align: left; }
+.lecture:hover,
+.lecture:focus-visible { background: #f0f0f0; transform: translateY(-2px); outline: none; }
+.lecture:focus-visible { box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3); }
+.lecture h3 { margin: 0 0 5px 0; }
 .lecture p { margin: 0; font-size: 14px; color: #666; }
 .rating { font-weight: bold; color: #333; }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 
 /* 로딩 애니메이션 스타일 추가 */
 .loading-container {

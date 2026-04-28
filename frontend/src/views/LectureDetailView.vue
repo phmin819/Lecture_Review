@@ -2,9 +2,9 @@
   <div class="page-wrapper">
     <header class="detail-header">
       <div class="nav-content">
-        <span class="back-btn" @click="$router.push('/')">← 목록으로</span>
-        <div class="logo" @click="$router.push('/')"> 명지전문대</div>
-        <button class="login-btn" @click="$router.push('/login')">로그인</button>
+        <button type="button" class="back-btn" @click="$router.push('/')" aria-label="목록으로 돌아가기">← 목록으로</button>
+        <button type="button" class="logo" @click="$router.push('/')" aria-label="홈으로 이동">명지전문대</button>
+        <button class="login-btn" type="button" @click="$router.push('/login')">로그인</button>
       </div>
     </header>
 
@@ -17,15 +17,15 @@
         <h2 class="lecture-title">{{ lecture.lecture_name }}</h2>
         <p class="professor-name">{{ lecture.professor_name }} 교수님</p>
 
-        <div class="rating-display">
+        <div class="rating-display" aria-label="강의 평점 정보">
           <div class="score-main">
             <span class="score-num">{{ lecture.avg_rating || '0.0' }}</span>
             <span class="score-max">/ 5</span>
-            <div class="stars">☆☆☆☆☆</div>
+            <div class="stars" aria-hidden="true">☆☆☆☆☆</div>
             <p class="review-count">리뷰 {{ reviews.length }}개</p>
           </div>
           
-          <div class="rating-bars">
+          <div class="rating-bars" aria-hidden="true">
             <div class="bar-item" v-for="n in [5,4,3,2,1]" :key="n">
               <span>{{ n }}점</span>
               <div class="bar-bg"><div class="bar-fill" style="width: 0%"></div></div>
@@ -53,15 +53,15 @@
         </div>
 
         <div v-if="reviews.length === 0" class="empty-reviews">
-          <p>작성된 후기가 없습니다.<br>첫 번째 후기의 주인공이 되어주세요! </p>
+          <p>작성된 후기가 없습니다.<br>첫 번째 후기의 주인공이 되어주세요!</p>
         </div>
 
         <div v-else class="review-list">
           <div class="review-item" v-for="review in reviews" :key="review.review_id">
             <div class="review-user">
-              <div class="user-avatar">👤</div>
+              <div class="user-avatar" aria-hidden="true">👤</div>
               <div class="user-info">
-                <span>2026년 작성됨</span>
+                <time datetime="2026">2026년 작성됨</time>
               </div>
               <div class="item-rating">⭐ {{ review.rating.toFixed(1) }}</div>
             </div>
@@ -72,13 +72,32 @@
 
       <section class="card write-section">
         <h3>후기 작성하기</h3>
-        <div class="star-rating-input">
-           <span v-for="i in 5" :key="i" @click="rating = i" class="star">
-             {{ i <= rating ? '⭐' : '☆' }}
-           </span>
-        </div>
-        <textarea v-model="newReview" placeholder="이 강의에 대한 솔직한 후기를 남겨주세요. 후배들에게 큰 도움이 됩니다 :)"></textarea>
-        <button class="submit-btn" @click="submitReview">후기 등록하기</button>
+        <form @submit.prevent="submitReview" aria-label="후기 작성 폼">
+          <fieldset class="star-rating-input" aria-label="별점 선택">
+            <legend class="visually-hidden">별점 선택</legend>
+            <label v-for="i in 5" :key="i" class="star-label">
+              <input
+                type="radio"
+                name="rating"
+                :value="i"
+                v-model="rating"
+                class="visually-hidden"
+              />
+              <span class="star" :aria-pressed="rating >= i ? 'true' : 'false'">{{ i <= rating ? '⭐' : '☆' }}</span>
+              <span class="visually-hidden">{{ i }}점</span>
+            </label>
+          </fieldset>
+
+          <label for="review-text" class="visually-hidden">후기 내용</label>
+          <textarea
+            id="review-text"
+            v-model="newReview"
+            placeholder="이 강의에 대한 솔직한 후기를 남겨주세요. 후배들에게 큰 도움이 됩니다 :)"
+          ></textarea>
+
+          <button type="submit" class="submit-btn">후기 등록하기</button>
+          <p role="status" aria-live="polite" class="form-status">{{ formStatus }}</p>
+        </form>
       </section>
     </main>
   </div>
@@ -93,7 +112,8 @@ export default {
       lecture: null,
       reviews: [],
       newReview: "",
-      rating: 5
+      rating: 5,
+      formStatus: ""
     }
   },
   async created() {
@@ -114,11 +134,15 @@ export default {
     async submitReview() {
       const token = localStorage.getItem("token");
       if (!token) {
-        alert("로그인이 필요한 기능입니다.");
+        this.formStatus = "로그인이 필요한 기능입니다.";
         return;
       }
+      if (!this.newReview.trim()) {
+        this.formStatus = "후기 내용을 입력해 주세요.";
+        return;
+      }
+      this.formStatus = "리뷰 등록 준비 중입니다.";
       // 리뷰 등록 로직은 다음 단계에서 구현!
-      alert("리뷰 등록 준비 중입니다.");
     }
   }
 }
@@ -150,6 +174,17 @@ export default {
 .bar-bg { flex-grow: 1; height: 6px; background: #eee; border-radius: 3px; }
 .bar-fill { height: 100%; background: #ff9f43; border-radius: 3px; }
 .bar-num { width: 20px; text-align: right; color: #ccc; }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+
+.star-rating-input { display: flex; gap: 8px; margin-bottom: 10px; }
+.star-label { cursor: pointer; }
+.star-label input { position: absolute; opacity: 0; width: 1px; height: 1px; overflow: hidden; }
+.star { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; background: #f3f4f6; transition: background 0.2s; }
+.star:hover,
+.star:focus-visible { background: #e2e8f0; outline: none; }
+
+.form-status { margin-top: 12px; color: #4e73df; font-size: 14px; min-height: 1.2em; }
 
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; border-top: 1px solid #f1f1f1; padding-top: 20px; }
 .stat-card { background: #f8f9fa; padding: 15px 5px; border-radius: 10px; text-align: center; }
