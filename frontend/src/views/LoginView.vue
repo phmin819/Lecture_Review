@@ -1,22 +1,37 @@
 <template>
   <div class="wrapper">
     <div class="login-box">
-      <h2> 명지전문대 강의 후기</h2>
+      <h1>명지전문대 강의 후기</h1>
       <h2>로그인</h2>
 
-      <div class="input-group">
-        <input v-model="username" placeholder="아이디 (이메일)" />
-      </div>
+      <form class="login-form" @submit.prevent="login" novalidate>
+        <div class="input-group">
+          <label for="username">아이디 (이메일)</label>
+          <input
+            id="username"
+            v-model="username"
+            type="email"
+            placeholder="아이디 (이메일)"
+          />
+        </div>
 
-      <div class="input-group">
-        <input v-model="password" type="password" placeholder="비밀번호" />
-      </div>
+        <div class="input-group">
+          <label for="password">비밀번호</label>
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            placeholder="비밀번호"
+          />
+        </div>
 
-      <button @click="login">로그인</button>
+        <button type="submit">로그인</button>
+        <p role="status" aria-live="polite" class="alert">{{ errorMessage }}</p>
+      </form>
 
       <div class="footer-links">
-        <p>계정이 없으신가요? 
-          <span class="link" @click="$router.push('/register')">회원가입</span>
+        <p>계정이 없으신가요?
+          <button type="button" class="link-button" @click="$router.push('/register')">회원가입</button>
         </p>
       </div>
     </div>
@@ -30,14 +45,16 @@ export default {
   data() {
     return {
       username: '',
-      password: ''
+      password: '',
+      errorMessage: ''
     }
   },
   methods: {
     async login() {
+      this.errorMessage = '';
       if (!this.username || !this.password) {
-        alert('아이디와 비밀번호를 입력하세요')
-        return
+        this.errorMessage = '아이디와 비밀번호를 입력하세요.';
+        return;
       }
 
       const formData = new URLSearchParams();
@@ -56,13 +73,11 @@ export default {
         );
 
         localStorage.setItem("token", res.data.access_token);
-
-        alert("로그인 성공!");
+        this.errorMessage = '로그인 성공!';
         this.$router.push("/");
-
       } catch (err) {
         console.error(err);
-        alert("로그인 실패: 이메일 또는 비밀번호를 확인하세요.");
+        this.errorMessage = "로그인 실패: 이메일 또는 비밀번호를 확인하세요.";
       }
     }
   }
@@ -112,6 +127,20 @@ button:hover {
   background: #5a6fd6;
 }
 
+.input-group label {
+  display: block;
+  text-align: left;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #333;
+}
+
+.alert {
+  margin-top: 12px;
+  color: #d63333;
+  min-height: 1.2em;
+}
+
 /* 하단 링크 스타일 */
 .footer-links {
   margin-top: 20px;
@@ -119,15 +148,18 @@ button:hover {
   color: #666;
 }
 
-.link {
+.link-button {
+  background: none;
+  border: none;
   color: #667eea;
-  font-weight: bold;
-  cursor: pointer;
   text-decoration: underline;
-  margin-left: 5px;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  font-weight: bold;
 }
 
-.link:hover {
+.link-button:hover {
   color: #764ba2;
 }
 </style>

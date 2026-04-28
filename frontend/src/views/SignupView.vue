@@ -1,17 +1,32 @@
 <template>
   <div class="wrapper">
     <div class="signup-box">
-    <h2> 명지전문대 강의 후기</h2>
+      <h1>명지전문대 강의 후기</h1>
       <h2>회원가입</h2>
 
-      <input v-model="username" placeholder="아이디" />
-      <input v-model="email" placeholder="이메일" />
-      <input v-model="password" type="password" placeholder="비밀번호" />
+      <form class="signup-form" @submit.prevent="signup" novalidate>
+        <div class="input-group">
+          <label for="username">아이디</label>
+          <input id="username" v-model="username" placeholder="아이디" />
+        </div>
 
-      <button @click="signup">회원가입</button>
+        <div class="input-group">
+          <label for="email">이메일</label>
+          <input id="email" v-model="email" type="email" placeholder="이메일" />
+        </div>
 
-      <p @click="$router.push('/login')" class="link">
-        로그인 하러가기
+        <div class="input-group">
+          <label for="password">비밀번호</label>
+          <input id="password" v-model="password" type="password" placeholder="비밀번호" />
+        </div>
+
+        <button type="submit">회원가입</button>
+        <p role="status" aria-live="polite" class="alert">{{ errorMessage }}</p>
+      </form>
+
+      <p class="link-row">
+        이미 계정이 있나요?
+        <button type="button" class="link-button" @click="$router.push('/login')">로그인</button>
       </p>
     </div>
   </div>
@@ -25,13 +40,15 @@ export default {
     return {
       username: '',
       email: '',
-      password: ''
+      password: '',
+      errorMessage: ''
     }
   },
   methods: {
     async signup() {
+      this.errorMessage = '';
       if (!this.username || !this.email || !this.password) {
-        alert("모든 값을 입력하세요");
+        this.errorMessage = "모든 값을 입력하세요.";
         return;
       }
 
@@ -42,12 +59,11 @@ export default {
           password: this.password
         });
 
-        alert("회원가입 성공!");
+        this.errorMessage = "회원가입 성공!";
         this.$router.push("/login");
-
       } catch (err) {
         console.error(err);
-        alert("회원가입 실패 (이미 존재하는 이메일)");
+        this.errorMessage = "회원가입 실패 (이미 존재하는 이메일)";
       }
     }
   }
@@ -83,11 +99,37 @@ button {
   background: #667eea;
   color: white;
   border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
 }
 
-.link {
-  margin-top: 10px;
+.input-group label {
+  display: block;
+  text-align: left;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #333;
+}
+
+.alert {
+  margin-top: 12px;
+  color: #d63333;
+  min-height: 1.2em;
+}
+
+.link-button {
+  background: none;
+  border: none;
   color: #667eea;
+  text-decoration: underline;
   cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.link-button:hover {
+  color: #764ba2;
 }
 </style>
