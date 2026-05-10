@@ -108,3 +108,51 @@ def get_lecture_reviews(lecture_id: int, session: Session = Depends(get_session)
     statement = select(Review).where(Review.lecture_id == lecture_id)
     reviews = session.exec(statement).all()
     return reviews
+
+
+//평균 점수 높은 순서대로 상위 5개 가져오기
+@app.get("/lectures/trending")
+def get_trending_lectures(session: Session = Depends(get_session)):
+    # 1. 모든 강의 정보 가져오기
+    statement = select(Lecture)
+    lectures = session.exec(statement).all()
+    
+    trending = []
+    for lecture in lectures:
+        # 2. 해당 강의(lecture_id)의 리뷰들만 필터링
+        rev_stmt = select(Review).where(Review.lecture_id == lecture.lecture_id)
+        reviews = session.exec(rev_stmt).all()
+        
+        # 3. 평균 평점 계산
+        avg_rating = sum(r.rating for r in reviews) / len(reviews) if reviews else 0
+        
+        trending.append({
+            "lecture_id": lecture.lecture_id,
+            "lecture_name": lecture.lecture_name,
+            "professor_name": lecture.professor_name,
+            "department": lecture.department,
+            "avg_rating": round(avg_rating, 1),
+            "review_count": len(reviews)
+        })
+    
+    # 4. 평점 높은 순으로 정렬 후 상위 5개 반환
+    trending.sort(key=lambda x: x['avg_rating'], reverse=True)
+    return trending[:5]
+
+
+//프로필 기능
+@app.get("/users/me")
+def get_my_profile(current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    # 1. 내가(user_id) 쓴 모든 리뷰 가져오기
+    statement = select(Review).where(Review.user_id == current_user.user_id)
+    my_reviews = session.exec(statement).all()
+    
+    # 2. 프론트엔드에 전달할 프로필 패키지 구성
+    return {
+        "username": current_user.username,
+        "email": current_user.email,
+        "created_at": current_user.created_at,
+        "total_reviews": len(my_reviews),
+        # 접근성 고려: 스크린 리더가 한 번에 읽기 좋은 요약 문구 추가
+        "accessibility_summary": f"{current_user.username}님은 지금까지 총 {len(my_reviews)}개의 리뷰를 남기셨습니다."
+    }
