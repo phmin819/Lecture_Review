@@ -5,6 +5,7 @@
      클래스를 매핑함. 인증을 위한 UserCreate 등 데이터 전송용 모델도 포함.
 """
 
+from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -45,6 +46,8 @@ class Review(SQLModel, table=True):
     # 외래키 (Neon DB의 실제 컬럼명과 일치해야 함)
     user_id: int = Field(foreign_key="users.user_id")
     lecture_id: int = Field(foreign_key="lectures.lecture_id")
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     # 관계 설정: 리뷰 객체에서 바로 유저나 강의 정보를 조회 가능
     user: Optional[User] = Relationship(back_populates="reviews")

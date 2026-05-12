@@ -12,8 +12,10 @@
       <label for="search" class="visually-hidden">강의 검색</label>
       <input
         id="search"
+        v-model="searchQuery"
+        @input="handleSearch"
         class="search"
-        placeholder="과목명, 교수명, 코드 검색..."
+        placeholder="과목명, 교수명 검색..."
         aria-label="강의 검색"
       />
     </form>
@@ -28,9 +30,16 @@
         <h2>오늘의 인기 강의</h2>
         <p>수강신청 기간, 학생들이 많이 찾은 강의입니다.</p>
         <div class="tags">
-          <span v-for="lecture in lectures.slice(0,2)" :key="lecture.lecture_id">
-            {{ lecture.lecture_name }}
-          </span>
+          <button
+            v-for="lecture in trendingLectures.slice(0, 2)"
+            :key="lecture.lecture_id"
+            type="button"
+            class="trending-item"
+            @click="$router.push(`/lecture/${lecture.lecture_id}`)"
+          >
+            <span class="name">{{ lecture.lecture_name }}</span>
+            <span class="rating">⭐ {{ lecture.avg_rating || '0.0' }}</span>
+          </button>
         </div>
       </div>
 
@@ -62,24 +71,48 @@ export default {
   data() {
     return {
       lectures: [],
+      trendingLectures: [], // 인기 강의 데이터 분리
       isLoggedIn: false,
-      loading: true // 로딩 상태값 추가
+      loading: true,
+      searchQuery: "",
+      searchTimer: null // 디바운스용 타이머
     }
   },
   async created() {
     this.isLoggedIn = !!localStorage.getItem("token");
     this.fetchLectures();
+    this.fetchTrendingLectures(); // 초기 로드 시 인기 강의 가져오기
   },
   methods: {
-    async fetchLectures() {
+    // 인기 강의(평점순) 가져오기
+    async fetchTrendingLectures() {
       try {
-        this.loading = true; // 로딩 시작
-        const res = await axios.get("http://127.0.0.1:8000/lectures");
+        const res = await axios.get("http://127.0.0.1:8000/lectures/trending");
+        this.trendingLectures = res.data;
+      } catch (err) {
+        console.error("인기 강의 로드 실패", err);
+      }
+    },
+    // 검색 입력 핸들러 (0.3초 대기 후 검색)
+    handleSearch() {
+      if (this.searchTimer) clearTimeout(this.searchTimer);
+      this.searchTimer = setTimeout(() => {
+        this.fetchLectures(true);
+      }, 300);
+    },
+    async fetchLectures(isSearch = false) {
+      try {
+        // 검색 시에는 로딩 스피너를 띄우지 않아 깜빡임 방지
+        if (!isSearch) this.loading = true;
+        
+        const res = await axios.get("http://127.0.0.1:8000/lectures", {
+          params: { search: this.searchQuery }
+        });
         this.lectures = res.data;
       } catch (err) {
         console.error(err);
       } finally {
-        this.loading = false; // 성공하든 실패하든 로딩 종료
+        this.loading = false;
       }
     },
     logout() {
@@ -102,7 +135,11 @@ export default {
 .subtitle { color: gray; margin-bottom: 20px; }
 .search { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #f3f3f3; margin-bottom: 20px; box-sizing: border-box; }
 .card { background: #eef2ff; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
-.tags span { background: white; padding: 5px 10px; border-radius: 10px; margin-right: 10px; font-size: 14px; }
+.tags { display: flex; gap: 10px; margin-top: 15px; }
+.trending-item { background: white; padding: 10px 15px; border-radius: 12px; border: 1px solid #dee2e6; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+.trending-item:hover { transform: translateY(-3px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.trending-item .name { font-weight: bold; font-size: 14px; color: #333; }
+.trending-item .rating { font-size: 13px; color: #ff9f43; font-weight: bold; }
 .lecture { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #fafafa; border-radius: 10px; margin-bottom: 10px; border: 1px solid #eee; transition: 0.2s; width: 100%; text-align: left; }
 .lecture:hover,
 .lecture:focus-visible { background: #f0f0f0; transform: translateY(-2px); outline: none; }

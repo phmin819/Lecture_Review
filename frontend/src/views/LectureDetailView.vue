@@ -61,7 +61,7 @@
             <div class="review-user">
               <div class="user-avatar" aria-hidden="true">👤</div>
               <div class="user-info">
-                <time datetime="2026">2026년 작성됨</time>
+                <time :datetime="review.created_at">{{ formatDate(review.created_at) }} 작성됨</time>
               </div>
               <div class="item-rating">⭐ {{ review.rating.toFixed(1) }}</div>
             </div>
@@ -117,20 +117,21 @@ export default {
     }
   },
   async created() {
-    const lectureId = this.$route.params.id;
-    try {
-      // 모든 강의를 가져와서 해당 ID 찾기 (상세조회 API가 없을 경우 대비)
-      const res = await axios.get("http://127.0.0.1:8000/lectures");
-      this.lecture = res.data.find(l => l.lecture_id == lectureId);
-      
-      // 해당 강의의 리뷰 가져오기
-      const revRes = await axios.get(`http://127.0.0.1:8000/lectures/${lectureId}/reviews`);
-      this.reviews = revRes.data;
-    } catch (err) {
-      console.error("데이터 로드 실패", err);
-    }
+    this.fetchLectureData();
   },
   methods: {
+    async fetchLectureData() {
+      const lectureId = this.$route.params.id;
+      try {
+        const res = await axios.get(`http://127.0.0.1:8000/lectures/${lectureId}`);
+        this.lecture = res.data;
+        
+        const revRes = await axios.get(`http://127.0.0.1:8000/lectures/${lectureId}/reviews`);
+        this.reviews = revRes.data;
+      } catch (err) {
+        console.error("데이터 로드 실패", err);
+      }
+    },
     getStarDisplay(rating) {
       const fullStars = Math.floor(rating || 0);
       const hasHalfStar = (rating || 0) % 1 >= 0.5;
@@ -146,6 +147,11 @@ export default {
       if (this.reviews.length === 0) return 0;
       const count = this.getRatingCount(ratingScore);
       return (count / this.reviews.length) * 100;
+    },
+    formatDate(dateStr) {
+      if (!dateStr) return "";
+      const date = new Date(dateStr);
+      return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
     },
     async submitReview() {
       const token = localStorage.getItem("token");
@@ -179,18 +185,9 @@ export default {
           }
         );
         
-        // 리뷰 등록 성공 후 리스트 새로고침
+        // 리뷰 등록 성공 후 전체 데이터 다시 불러오기 (평점 포함)
         this.formStatus = "✓ 리뷰가 등록되었습니다!";
-        
-        // 리뷰 목록 다시 불러오기
-        const revRes = await axios.get(`http://127.0.0.1:8000/lectures/${lectureId}/reviews`);
-        this.reviews = revRes.data;
-        
-        // 평점 평균 재계산
-        if (this.reviews.length > 0) {
-          const avgRating = (this.reviews.reduce((sum, r) => sum + r.rating, 0) / this.reviews.length).toFixed(1);
-          this.lecture.avg_rating = parseFloat(avgRating);
-        }
+        await this.fetchLectureData();
         
         // 폼 초기화
         setTimeout(() => {

@@ -77,7 +77,7 @@ export default {
         this.$router.push("/");
       } catch (err) {
         console.error(err);
-        this.errorMessage = "로그인 실패: 이메일 또는 비밀번호를 확인하세요.";
+        this.errorMessage = err.response?.data?.detail || "로그인 실패: 이메일 또는 비밀번호를 확인하세요.";
       }
     }
   }
