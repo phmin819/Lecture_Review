@@ -21,15 +21,15 @@
           <div class="score-main">
             <span class="score-num">{{ lecture.avg_rating || '0.0' }}</span>
             <span class="score-max">/ 5</span>
-            <div class="stars" aria-hidden="true">☆☆☆☆☆</div>
+            <div class="stars" aria-hidden="true">{{ getStarDisplay(lecture.avg_rating) }}</div>
             <p class="review-count">리뷰 {{ reviews.length }}개</p>
           </div>
           
           <div class="rating-bars" aria-hidden="true">
             <div class="bar-item" v-for="n in [5,4,3,2,1]" :key="n">
               <span>{{ n }}점</span>
-              <div class="bar-bg"><div class="bar-fill" style="width: 0%"></div></div>
-              <span class="bar-num">0</span>
+              <div class="bar-bg"><div class="bar-fill" :style="{ width: getRatingBarWidth(n) + '%' }"></div></div>
+              <span class="bar-num">{{ getRatingCount(n) }}</span>
             </div>
           </div>
         </div>
@@ -65,7 +65,7 @@
               </div>
               <div class="item-rating">⭐ {{ review.rating.toFixed(1) }}</div>
             </div>
-            <p class="review-text">{{ review.comment }}</p>
+            <p class="review-text">{{ review.content }}</p>
           </div>
         </div>
       </section>
@@ -131,6 +131,22 @@ export default {
     }
   },
   methods: {
+    getStarDisplay(rating) {
+      const fullStars = Math.floor(rating || 0);
+      const hasHalfStar = (rating || 0) % 1 >= 0.5;
+      let stars = '⭐'.repeat(fullStars);
+      if (hasHalfStar && fullStars < 5) stars += '★';
+      stars += '☆'.repeat(5 - fullStars - (hasHalfStar ? 1 : 0));
+      return stars;
+    },
+    getRatingCount(ratingScore) {
+      return this.reviews.filter(r => r.rating === ratingScore).length;
+    },
+    getRatingBarWidth(ratingScore) {
+      if (this.reviews.length === 0) return 0;
+      const count = this.getRatingCount(ratingScore);
+      return (count / this.reviews.length) * 100;
+    },
     async submitReview() {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -141,8 +157,56 @@ export default {
         this.formStatus = "후기 내용을 입력해 주세요.";
         return;
       }
-      this.formStatus = "리뷰 등록 준비 중입니다.";
-      // 리뷰 등록 로직은 다음 단계에서 구현!
+      
+      try {
+        this.formStatus = "리뷰 등록 중입니다...";
+        
+        const lectureId = this.$route.params.id;
+        const reviewData = {
+          rating: this.rating,
+          content: this.newReview,
+          lecture_id: parseInt(lectureId)
+        };
+        
+        await axios.post(
+          "http://127.0.0.1:8000/reviews",
+          reviewData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+        
+        // 리뷰 등록 성공 후 리스트 새로고침
+        this.formStatus = "✓ 리뷰가 등록되었습니다!";
+        
+        // 리뷰 목록 다시 불러오기
+        const revRes = await axios.get(`http://127.0.0.1:8000/lectures/${lectureId}/reviews`);
+        this.reviews = revRes.data;
+        
+        // 평점 평균 재계산
+        if (this.reviews.length > 0) {
+          const avgRating = (this.reviews.reduce((sum, r) => sum + r.rating, 0) / this.reviews.length).toFixed(1);
+          this.lecture.avg_rating = parseFloat(avgRating);
+        }
+        
+        // 폼 초기화
+        setTimeout(() => {
+          this.newReview = "";
+          this.rating = 5;
+          this.formStatus = "";
+        }, 1500);
+        
+      } catch (err) {
+        console.error("리뷰 등록 실패:", err);
+        if (err.response?.status === 401) {
+          this.formStatus = "로그인이 필요합니다.";
+        } else {
+          this.formStatus = "리뷰 등록 중 오류가 발생했습니다. 다시 시도해주세요.";
+        }
+      }
     }
   }
 }

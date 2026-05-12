@@ -97,35 +97,61 @@ def create_review(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
-    review.user_id = current_user.user_id
-    session.add(review)
-    session.commit()
-    session.refresh(review)
-    return {"message": "리뷰 등록 완료!", "data": review}
+    try:
+        review.user_id = current_user.user_id
+        session.add(review)
+        session.commit()
+        session.refresh(review)
+        
+        # Review 객체를 딕셔너리로 변환하여 반환
+        review_dict = {
+            "review_id": review.review_id,
+            "rating": review.rating,
+            "content": review.content,
+            "user_id": review.user_id,
+            "lecture_id": review.lecture_id
+        }
+        return {"message": "리뷰 등록 완료!", "data": review_dict}
+    except Exception as e:
+        print(f"Error creating review: {e}")
+        raise HTTPException(status_code=500, detail="리뷰 등록 중 오류가 발생했습니다.")
 
 @app.get("/lectures/{lecture_id}/reviews")
 def get_lecture_reviews(lecture_id: int, session: Session = Depends(get_session)):
-    statement = select(Review).where(Review.lecture_id == lecture_id)
-    reviews = session.exec(statement).all()
-    return reviews
+    try:
+        statement = select(Review).where(Review.lecture_id == lecture_id)
+        reviews = session.exec(statement).all()
+
+        reviews_list = [
+            {
+                "review_id": r.review_id,
+                "rating": r.rating,
+                "content": r.content,
+                "user_id": r.user_id,
+                "lecture_id": r.lecture_id
+            }
+            for r in reviews
+        ]
+
+        return reviews_list
+    except Exception as e:
+        print(f"Error fetching reviews: {e}")
+        raise HTTPException(status_code=500, detail="리뷰 조회 중 오류가 발생했습니다.")
 
 
-//평균 점수 높은 순서대로 상위 5개 가져오기
+# 평균 점수 높은 순서대로 상위 5개 가져오기
 @app.get("/lectures/trending")
 def get_trending_lectures(session: Session = Depends(get_session)):
-    # 1. 모든 강의 정보 가져오기
     statement = select(Lecture)
     lectures = session.exec(statement).all()
-    
+
     trending = []
     for lecture in lectures:
-        # 2. 해당 강의(lecture_id)의 리뷰들만 필터링
         rev_stmt = select(Review).where(Review.lecture_id == lecture.lecture_id)
         reviews = session.exec(rev_stmt).all()
-        
-        # 3. 평균 평점 계산
+
         avg_rating = sum(r.rating for r in reviews) / len(reviews) if reviews else 0
-        
+
         trending.append({
             "lecture_id": lecture.lecture_id,
             "lecture_name": lecture.lecture_name,
@@ -134,25 +160,23 @@ def get_trending_lectures(session: Session = Depends(get_session)):
             "avg_rating": round(avg_rating, 1),
             "review_count": len(reviews)
         })
-    
-    # 4. 평점 높은 순으로 정렬 후 상위 5개 반환
-    trending.sort(key=lambda x: x['avg_rating'], reverse=True)
+
+    trending.sort(key=lambda x: x["avg_rating"], reverse=True)
     return trending[:5]
 
 
-//프로필 기능
+# 프로필 기능
 @app.get("/users/me")
-def get_my_profile(current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
-    # 1. 내가(user_id) 쓴 모든 리뷰 가져오기
+def get_my_profile(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
     statement = select(Review).where(Review.user_id == current_user.user_id)
     my_reviews = session.exec(statement).all()
-    
-    # 2. 프론트엔드에 전달할 프로필 패키지 구성
+
     return {
         "username": current_user.username,
         "email": current_user.email,
-        "created_at": current_user.created_at,
         "total_reviews": len(my_reviews),
-        # 접근성 고려: 스크린 리더가 한 번에 읽기 좋은 요약 문구 추가
         "accessibility_summary": f"{current_user.username}님은 지금까지 총 {len(my_reviews)}개의 리뷰를 남기셨습니다."
     }
