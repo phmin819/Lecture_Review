@@ -25,18 +25,24 @@ app.add_middleware(
 
 @app.post("/auth/signup")
 def signup(user_data: UserCreate, session: Session = Depends(get_session)):
-    existing_user = session.exec(select(User).where(User.email == user_data.email)).first()
+    # 이메일 양 끝 공백 제거 및 디버깅 로그
+    clean_email = user_data.email.strip()
+    print(f"[DEBUG] Signup attempt for email: {clean_email}")
+    
+    existing_user = session.exec(select(User).where(User.email == clean_email)).first()
     if existing_user:
+        print(f"[DEBUG] Duplicate email found: {existing_user.email}")
         raise HTTPException(status_code=400, detail="이미 등록된 이메일입니다.")
     
     new_user = User(
         username=user_data.username,
-        email=user_data.email,
+        email=clean_email,
         password_hash=hash_password(user_data.password) 
     )
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
+    print(f"[DEBUG] User created successfully: {new_user.email}")
     return {"message": "회원가입 성공!"}
 
 @app.post("/auth/login")
@@ -58,9 +64,17 @@ def login(
 
 # --- [수정된 부분] 500 에러 방지를 위해 dict 생성 로직을 안전하게 변경 ---
 @app.get("/lectures")
-def read_lectures(session: Session = Depends(get_session)):
+def read_lectures(search: Optional[str] = None, session: Session = Depends(get_session)):
     try:
-        lectures = session.exec(select(Lecture)).all()
+        statement = select(Lecture)
+        if search:
+            # 과목명 또는 교수명에 검색어가 포함된 경우 필터링 (LIKE 검색)
+            statement = statement.where(
+                (Lecture.lecture_name.contains(search)) | 
+                (Lecture.professor_name.contains(search))
+            )
+            
+        lectures = session.exec(statement).all()
         result = []
         
         for lecture in lectures:
@@ -91,6 +105,35 @@ def read_lectures(session: Session = Depends(get_session)):
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/lectures/{lecture_id}")
+def read_lecture_detail(lecture_id: int, session: Session = Depends(get_session)):
+    try:
+        lecture = session.get(Lecture, lecture_id)
+        if not lecture:
+            raise HTTPException(status_code=404, detail="강의를 찾을 수 없습니다.")
+        
+        # 해당 강의의 모든 리뷰 가져오기
+        statement = select(Review).where(Review.lecture_id == lecture_id)
+        reviews = session.exec(statement).all()
+        
+        count = len(reviews)
+        avg_rating = 0
+        if count > 0:
+            total_score = sum(r.rating for r in reviews)
+            avg_rating = round(total_score / count, 1)
+        
+        return {
+            "lecture_id": lecture.lecture_id,
+            "lecture_name": lecture.lecture_name,
+            "professor_name": lecture.professor_name,
+            "department": lecture.department,
+            "avg_rating": avg_rating,
+            "review_count": count
+        }
+    except Exception as e:
+        print(f"Error fetching lecture detail: {e}")
+        raise HTTPException(status_code=500, detail="강의 정보를 불러오는 중 오류가 발생했습니다.")
+
 @app.post("/reviews")
 def create_review(
     review: Review, 
@@ -109,7 +152,8 @@ def create_review(
             "rating": review.rating,
             "content": review.content,
             "user_id": review.user_id,
-            "lecture_id": review.lecture_id
+            "lecture_id": review.lecture_id,
+            "created_at": review.created_at.isoformat()
         }
         return {"message": "리뷰 등록 완료!", "data": review_dict}
     except Exception as e:
@@ -128,7 +172,8 @@ def get_lecture_reviews(lecture_id: int, session: Session = Depends(get_session)
                 "rating": r.rating,
                 "content": r.content,
                 "user_id": r.user_id,
-                "lecture_id": r.lecture_id
+                "lecture_id": r.lecture_id,
+                "created_at": r.created_at.isoformat()
             }
             for r in reviews
         ]

@@ -63,7 +63,7 @@ export default {
         this.$router.push("/login");
       } catch (err) {
         console.error(err);
-        this.errorMessage = "회원가입 실패 (이미 존재하는 이메일)";
+        this.errorMessage = err.response?.data?.detail || "회원가입 실패";
       }
     }
   }
