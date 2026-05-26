@@ -1,33 +1,72 @@
 <template>
-  <div class="wrapper">
-    <div class="signup-box">
-      <h1>명지전문대 강의 후기</h1>
-      <h2>회원가입</h2>
+  <div class="signup-wrapper">
+    <!-- 배경 장식 -->
+    <div class="bg-decoration">
+      <div class="circle circle-1"></div>
+      <div class="circle circle-2"></div>
+    </div>
 
-      <form class="signup-form" @submit.prevent="signup" novalidate>
-        <div class="input-group">
-          <label for="username">아이디</label>
-          <input id="username" v-model="username" placeholder="아이디" />
+    <div class="signup-container">
+      <div class="signup-header">
+        <h1 class="logo-text">MJC Lecture</h1>
+        <p class="step-text">새로운 계정 만들기</p>
+      </div>
+
+      <form class="signup-card" @submit.prevent="signup">
+        <div class="input-section">
+          <div class="input-group">
+            <label for="username">사용자 이름(닉네임)</label>
+            <div class="input-wrapper">
+              <input
+                id="username"
+                v-model="username"
+                type="text"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="email">계정 아이디(또는 이메일)</label>
+            <div class="input-wrapper">
+              <input
+                id="email"
+                v-model="email"
+                type="text"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="password">비밀번호</label>
+            <div class="input-wrapper">
+              <input
+                id="password"
+                v-model="password"
+                type="password"
+                required
+              />
+            </div>
+          </div>
         </div>
 
-        <div class="input-group">
-          <label for="email">이메일</label>
-          <input id="email" v-model="email" type="email" placeholder="이메일" />
-        </div>
+        <button type="submit" class="signup-submit-btn" :disabled="loading">
+          <span v-if="!loading">회원가입 완료</span>
+          <span v-else class="loader"></span>
+        </button>
 
-        <div class="input-group">
-          <label for="password">비밀번호</label>
-          <input id="password" v-model="password" type="password" placeholder="비밀번호" />
-        </div>
+        <p v-if="errorMessage" role="status" aria-live="polite" class="error-msg">
+          {{ errorMessage }}
+        </p>
 
-        <button type="submit">회원가입</button>
-        <p role="status" aria-live="polite" class="alert">{{ errorMessage }}</p>
+        <div class="form-footer">
+          <p>이미 계정이 있으신가요?</p>
+          <button type="button" class="login-link" @click="$router.push('/login')">
+            로그인 화면으로
+          </button>
+        </div>
       </form>
-
-      <p class="link-row">
-        이미 계정이 있나요?
-        <button type="button" class="link-button" @click="$router.push('/login')">로그인</button>
-      </p>
     </div>
   </div>
 </template>
@@ -41,16 +80,14 @@ export default {
       username: '',
       email: '',
       password: '',
-      errorMessage: ''
+      errorMessage: '',
+      loading: false
     }
   },
   methods: {
     async signup() {
       this.errorMessage = '';
-      if (!this.username || !this.email || !this.password) {
-        this.errorMessage = "모든 값을 입력하세요.";
-        return;
-      }
+      this.loading = true;
 
       try {
         await axios.post("http://127.0.0.1:8000/auth/signup", {
@@ -58,12 +95,13 @@ export default {
           email: this.email,
           password: this.password
         });
-
-        this.errorMessage = "회원가입 성공!";
+        alert("회원가입을 축하합니다! 로그인을 진행해 주세요.");
         this.$router.push("/login");
       } catch (err) {
         console.error(err);
-        this.errorMessage = err.response?.data?.detail || "회원가입 실패";
+        this.errorMessage = err.response?.data?.detail || "회원가입 중 오류가 발생했습니다.";
+      } finally {
+        this.loading = false;
       }
     }
   }
@@ -71,65 +109,187 @@ export default {
 </script>
 
 <style scoped>
-.wrapper {
-  height: 100vh;
+.signup-wrapper {
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background-color: #f8fbff;
+  font-family: 'Pretendard', sans-serif;
+  position: relative;
+  overflow: hidden;
 }
 
-.signup-box {
-  background: white;
-  padding: 40px;
-  border-radius: 15px;
-  width: 300px;
+/* 배경 장식 */
+.bg-decoration {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+.circle {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+}
+.circle-1 {
+  width: 350px;
+  height: 350px;
+  background: #004ea2;
+  top: -50px;
+  left: -100px;
+}
+.circle-2 {
+  width: 450px;
+  height: 450px;
+  background: #0072bc;
+  bottom: -150px;
+  right: -100px;
+}
+
+.signup-container {
+  width: 100%;
+  max-width: 420px;
+  padding: 20px;
+  z-index: 10;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.signup-header {
   text-align: center;
+  margin-bottom: 32px;
 }
 
-input {
-  width: 100%;
-  padding: 10px;
-  margin: 10px 0;
+.logo-text {
+  font-size: 28px;
+  font-weight: 800;
+  color: #004ea2;
+  margin-bottom: 8px;
 }
 
-button {
-  width: 100%;
-  padding: 10px;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
+.step-text {
+  color: #718096;
+  font-weight: 500;
+}
+
+.signup-card {
+  background: white;
+  padding: 32px;
+  border-radius: 24px;
+  box-shadow: 0 10px 25px rgba(0, 78, 162, 0.08);
+}
+
+.input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .input-group label {
-  display: block;
-  text-align: left;
-  margin-bottom: 6px;
-  font-size: 14px;
-  color: #333;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a5568;
 }
 
-.alert {
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  background: #f7fafc;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 0 14px;
+  transition: all 0.2s;
+}
+
+.input-wrapper:focus-within {
+  border-color: #004ea2;
+  background: white;
+}
+
+.input-icon {
+  font-size: 16px;
+  margin-right: 10px;
+  color: #a0aec0;
+}
+
+.input-wrapper input {
+  width: 100%;
+  padding: 12px 0;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  outline: none;
+}
+
+.signup-submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: #004ea2;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.signup-submit-btn:hover {
+  background: #003a85;
+  transform: translateY(-2px);
+}
+
+.error-msg {
+  color: #e53e3e;
+  font-size: 13px;
+  text-align: center;
   margin-top: 12px;
-  color: #d63333;
-  min-height: 1.2em;
+  background: #fff5f5;
+  padding: 8px;
+  border-radius: 8px;
 }
 
-.link-button {
+.form-footer {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: #718096;
+}
+
+.login-link {
   background: none;
   border: none;
-  color: #667eea;
+  color: #004ea2;
+  font-weight: 700;
   text-decoration: underline;
   cursor: pointer;
-  padding: 0;
-  font-size: 14px;
-  font-weight: bold;
+  margin-top: 4px;
 }
 
-.link-button:hover {
-  color: #764ba2;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.loader {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

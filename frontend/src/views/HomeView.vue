@@ -1,8 +1,16 @@
 <template>
   <div class="container">
     <header class="header">
-      <button v-if="!isLoggedIn" class="auth-btn" @click="$router.push('/login')">로그인</button>
-      <button v-else class="auth-btn logout" @click="logout">로그아웃</button>
+      <div v-if="!isLoggedIn" class="auth-buttons">
+        <button class="auth-btn" @click="$router.push('/login')">로그인</button>
+      </div>
+      <div v-else class="user-nav">
+        <button class="profile-nav-btn" @click="$router.push('/profile')" aria-label="프로필로 이동">
+          <span class="avatar-sm">👤</span>
+          <span class="nav-text">내 프로필</span>
+        </button>
+        <button class="auth-btn logout" @click="logout">로그아웃</button>
+      </div>
     </header>
     
     <h1 class="logo">명지전문대 강의 후기</h1>
@@ -178,4 +186,8 @@ export default {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+</style>
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}  
 </style>

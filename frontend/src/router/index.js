@@ -17,10 +17,15 @@ const routes = [
     component: SignupView   
   },
   {
-  path: '/lecture/:id',
-  name: 'LectureDetail',
-  component: () => import('../views/LectureDetailView.vue') 
-}
+    path: '/lecture/:id',
+    name: 'LectureDetail',
+    component: () => import('../views/LectureDetailView.vue') 
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('../views/ProfileView.vue')
+  }
 ]
 
 const router = createRouter({
