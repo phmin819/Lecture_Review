@@ -19,11 +19,23 @@ class User(UserBase, table=True):
     user_id: Optional[int] = Field(default=None, primary_key=True)
     password_hash: str = Field(alias="password_hash")
     
+    phone_number: Optional[str] = Field(default=None, nullable=True)
+    age: Optional[int] = Field(default=None, nullable=True)
+    gender: Optional[str] = Field(default=None, nullable=True)
+    grade: Optional[int] = Field(default=None, nullable=True) # 학년 추가
+    is_admin: bool = Field(default=False) # 관리자 여부 추가
+    
     # 관계 설정: 유저가 작성한 리뷰들을 바로 참조 가능
     reviews: List["Review"] = Relationship(back_populates="user")
 
 class UserCreate(UserBase):
     password: str  # 회원가입 시 프론트에서 보내주는 생 비밀번호
+
+class ProfileUpdate(SQLModel):
+    phone_number: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    grade: Optional[int] = None # 학년 추가
 
 # --- 2. Lecture 관련 모델 ---
 class Lecture(SQLModel, table=True):
@@ -32,6 +44,7 @@ class Lecture(SQLModel, table=True):
     lecture_name: str
     professor_name: str
     department: str
+    class_time: Optional[str] = Field(default=None, nullable=True) # 강의 시간 추가
     
     # 관계 설정: 강의에 달린 리뷰들을 바로 참조 가능
     reviews: List["Review"] = Relationship(back_populates="lecture")

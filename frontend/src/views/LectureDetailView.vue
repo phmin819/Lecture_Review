@@ -2,9 +2,16 @@
   <div class="page-wrapper">
     <header class="detail-header">
       <div class="nav-content">
-        <button type="button" class="back-btn" @click="$router.push('/')" aria-label="목록으로 돌아가기">← 목록으로</button>
-        <button type="button" class="logo" @click="$router.push('/')" aria-label="홈으로 이동">명지전문대</button>
-        <button class="login-btn" type="button" @click="$router.push('/login')">로그인</button>
+        <button type="button" class="back-btn" @click="$router.push('/')" aria-label="목록으로 돌아가기">목록으로</button>
+        <button type="button" class="logo" @click="$router.push('/')" aria-label="홈으로 이동">MJC Lecture</button>
+        <div v-if="!isLoggedIn" class="auth-buttons">
+          <button class="login-btn" type="button" @click="$router.push('/login')">로그인</button>
+        </div>
+        <div v-else class="user-nav">
+          <button class="profile-nav-btn" @click="$router.push('/profile')" aria-label="프로필로 이동">
+            <span class="nav-label">내 정보</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -12,10 +19,41 @@
       <section class="card info-section">
         <div class="badge-row">
           <span class="dept-badge">{{ lecture.department }}</span>
-          <span class="info-text">3학점 · 시간표 정보 없음</span>
+          <span class="info-text">3학점 · {{ lecture.class_time || '시간표 정보 없음' }}</span>
         </div>
-        <h2 class="lecture-title">{{ lecture.lecture_name }}</h2>
-        <p class="professor-name">{{ lecture.professor_name }} 교수님</p>
+        <div v-if="isAdmin && !isEditing" class="admin-controls">
+          <span class="admin-badge">관리자 권한</span>
+          <button @click="startEdit" class="edit-btn">정보 수정</button>
+        </div>
+
+        <div v-if="isEditing" class="edit-form card">
+          <h3>강의 정보 수정</h3>
+          <div class="form-group">
+            <label>강의명</label>
+            <input v-model="editData.lecture_name" placeholder="강의명" />
+          </div>
+          <div class="form-group">
+            <label>교수명</label>
+            <input v-model="editData.professor_name" placeholder="교수명" />
+          </div>
+          <div class="form-group">
+            <label>학과</label>
+            <input v-model="editData.department" placeholder="학과" />
+          </div>
+          <div class="form-group">
+            <label>강의 시간 (예: 월1,2 / 수4)</label>
+            <input v-model="editData.class_time" placeholder="강의 시간" />
+          </div>
+          <div class="edit-actions">
+            <button @click="saveEdit" class="save-edit-btn">저장</button>
+            <button @click="isEditing = false" class="cancel-edit-btn">취소</button>
+          </div>
+        </div>
+
+        <div v-if="!isEditing">
+          <h2 class="lecture-title">{{ lecture.lecture_name }}</h2>
+          <p class="professor-name">{{ lecture.professor_name }} 교수님</p>
+        </div>
 
         <div class="rating-display" aria-label="강의 평점 정보">
           <div class="score-main">
@@ -59,11 +97,20 @@
         <div v-else class="review-list">
           <div class="review-item" v-for="review in reviews" :key="review.review_id">
             <div class="review-user">
-              <div class="user-avatar" aria-hidden="true">👤</div>
               <div class="user-info">
+                <span class="username">{{ review.username }}</span>
                 <time :datetime="review.created_at">{{ formatDate(review.created_at) }} 작성됨</time>
               </div>
-              <div class="item-rating">⭐ {{ review.rating.toFixed(1) }}</div>
+              <div class="item-rating">평점 {{ review.rating.toFixed(1) }}</div>
+              <!-- 관리자 삭제 버튼 추가 -->
+              <button 
+                v-if="isAdmin" 
+                @click="deleteReview(review.review_id)" 
+                class="delete-review-btn"
+                title="리뷰 삭제"
+              >
+                삭제
+              </button>
             </div>
             <p class="review-text">{{ review.content }}</p>
           </div>
@@ -83,7 +130,7 @@
                 v-model="rating"
                 class="visually-hidden"
               />
-              <span class="star" :aria-pressed="rating >= i ? 'true' : 'false'">{{ i <= rating ? '⭐' : '☆' }}</span>
+              <span class="star-num" :class="{ active: rating >= i }">{{ i }}</span>
               <span class="visually-hidden">{{ i }}점</span>
             </label>
           </fieldset>
@@ -92,7 +139,7 @@
           <textarea
             id="review-text"
             v-model="newReview"
-            placeholder="이 강의에 대한 솔직한 후기를 남겨주세요. 후배들에게 큰 도움이 됩니다 :)"
+            placeholder="이 강의에 대한 솔직한 후기를 남겨주세요."
           ></textarea>
 
           <button type="submit" class="submit-btn">후기 등록하기</button>
@@ -113,13 +160,63 @@ export default {
       reviews: [],
       newReview: "",
       rating: 5,
-      formStatus: ""
+      formStatus: "",
+      isLoggedIn: false,
+      isAdmin: false,
+      isEditing: false, // 수정 모드 여부
+      editData: {
+        lecture_name: "",
+        professor_name: "",
+        department: "",
+        class_time: ""
+      }
     }
   },
   async created() {
+    this.isLoggedIn = !!localStorage.getItem("token");
+    this.isAdmin = localStorage.getItem("isAdmin") === "true";
     this.fetchLectureData();
   },
   methods: {
+    async deleteReview(reviewId) {
+      if (!confirm("정말로 이 리뷰를 삭제하시겠습니까?")) return;
+      
+      const token = localStorage.getItem("token");
+      try {
+        await axios.delete(`http://127.0.0.1:8000/reviews/${reviewId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        alert("리뷰가 삭제되었습니다.");
+        await this.fetchLectureData(); // 목록 새로고침
+      } catch (err) {
+        console.error("리뷰 삭제 실패:", err);
+        alert(err.response?.data?.detail || "리뷰 삭제 중 오류가 발생했습니다.");
+      }
+    },
+    startEdit() {
+      this.editData = {
+        lecture_name: this.lecture.lecture_name,
+        professor_name: this.lecture.professor_name,
+        department: this.lecture.department,
+        class_time: this.lecture.class_time
+      };
+      this.isEditing = true;
+    },
+    async saveEdit() {
+      const token = localStorage.getItem("token");
+      const lectureId = this.$route.params.id;
+      try {
+        await axios.put(`http://127.0.0.1:8000/lectures/${lectureId}`, this.editData, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        alert("강의 정보가 수정되었습니다.");
+        this.isEditing = false;
+        await this.fetchLectureData();
+      } catch (err) {
+        console.error("강의 수정 실패:", err);
+        alert("수정 중 오류가 발생했습니다.");
+      }
+    },
     async fetchLectureData() {
       const lectureId = this.$route.params.id;
       try {
@@ -135,8 +232,8 @@ export default {
     getStarDisplay(rating) {
       const fullStars = Math.floor(rating || 0);
       const hasHalfStar = (rating || 0) % 1 >= 0.5;
-      let stars = '⭐'.repeat(fullStars);
-      if (hasHalfStar && fullStars < 5) stars += '★';
+      let stars = '★'.repeat(fullStars);
+      if (hasHalfStar && fullStars < 5) stars += '☆';
       stars += '☆'.repeat(5 - fullStars - (hasHalfStar ? 1 : 0));
       return stars;
     },
@@ -210,59 +307,70 @@ export default {
 </script>
 
 <style scoped>
-.page-wrapper { background-color: #f8f9fa; min-height: 100vh; padding-bottom: 50px; }
-.detail-header { background: white; border-bottom: 1px solid #eee; padding: 15px 0; position: sticky; top: 0; z-index: 100; }
-.nav-content { max-width: 600px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
-.back-btn { cursor: pointer; color: #666; font-size: 14px; }
-.logo { font-weight: bold; color: #4e73df; cursor: pointer; }
-.login-btn { background: #4e73df; color: white; border: none; padding: 6px 15px; border-radius: 5px; cursor: pointer; }
+.page-wrapper { background-color: #f8fbff; min-height: 100vh; padding-bottom: 80px; font-family: 'Pretendard', sans-serif; }
+.detail-header { background: white; border-bottom: 1px solid #edf2f7; padding: 18px 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+.nav-content { max-width: 700px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+.back-btn { cursor: pointer; color: #718096; font-size: 14px; background: none; border: none; font-weight: 600; transition: color 0.2s; }
+.back-btn:hover { color: #004ea2; }
+.logo { font-weight: 800; color: #004ea2; cursor: pointer; background: none; border: none; font-size: 20px; letter-spacing: -0.5px; }
+.login-btn { background: #004ea2; color: white; border: none; padding: 8px 16px; border-radius: 10px; cursor: pointer; font-weight: 700; }
+.user-nav { display: flex; align-items: center; }
+.profile-nav-btn { background: #f7fafc; border: 1px solid #edf2f7; padding: 8px 14px; border-radius: 100px; cursor: pointer; transition: all 0.2s; }
+.nav-label { font-weight: 600; font-size: 14px; color: #4a5568; }
 
-.container { max-width: 600px; margin: 20px auto; padding: 0 15px; }
-.card { background: white; border-radius: 15px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.container { max-width: 700px; margin: 30px auto; padding: 0 20px; position: relative; z-index: 10; }
+.card { background: white; border-radius: 24px; padding: 32px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,78,162,0.04); border: 1px solid rgba(0,78,162,0.02); }
 
-.dept-badge { background: #eef2ff; color: #4e73df; padding: 4px 8px; border-radius: 5px; font-size: 12px; font-weight: bold; margin-right: 10px; }
-.info-text { color: #999; font-size: 12px; }
-.lecture-title { font-size: 24px; margin: 10px 0 5px 0; font-weight: bold; }
-.professor-name { color: #666; margin-bottom: 20px; }
+.dept-badge { background: #eef2ff; color: #004ea2; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; margin-right: 12px; }
+.info-text { color: #a0aec0; font-size: 13px; font-weight: 500; }
+.lecture-title { font-size: 28px; margin: 16px 0 6px 0; font-weight: 800; color: #1a202c; letter-spacing: -0.5px; }
+.professor-name { color: #718096; font-size: 16px; margin-bottom: 24px; font-weight: 500; }
 
-.rating-display { display: flex; gap: 30px; margin-bottom: 30px; align-items: center; }
-.score-num { font-size: 48px; font-weight: bold; }
-.score-max { color: #ccc; font-size: 20px; }
-.review-count { color: #999; font-size: 13px; margin-top: 5px; }
+.admin-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px; background: #fff5f5; border-radius: 14px; border: 1px solid #fed7d7; }
+.admin-badge { color: #e53e3e; font-size: 12px; font-weight: 800; }
+.edit-btn { background: white; color: #e53e3e; border: 1px solid #fed7d7; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700; }
+
+.edit-form h3 { margin-bottom: 20px; font-size: 18px; font-weight: 800; }
+.edit-form .form-group { margin-bottom: 16px; }
+.edit-form label { display: block; font-size: 13px; font-weight: 700; color: #4a5568; margin-bottom: 6px; margin-left: 4px; }
+.edit-form input { width: 100%; padding: 12px; background: #f7fafc; border: 2px solid transparent; border-radius: 12px; outline: none; }
+.edit-form input:focus { border-color: #004ea2; background: white; }
+.edit-actions { display: flex; gap: 12px; margin-top: 24px; }
+.save-edit-btn { flex: 1; background: #004ea2; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 700; cursor: pointer; }
+.cancel-edit-btn { flex: 1; background: #edf2f7; color: #718096; border: none; padding: 14px; border-radius: 12px; font-weight: 700; cursor: pointer; }
+
+.rating-display { display: flex; gap: 40px; margin-bottom: 40px; align-items: center; background: #f8fbff; padding: 30px; border-radius: 20px; }
+.score-main { text-align: center; }
+.score-num { font-size: 52px; font-weight: 800; color: #1a202c; }
+.score-max { color: #cbd5e0; font-size: 20px; font-weight: 600; }
+.review-count { color: #a0aec0; font-size: 14px; margin-top: 4px; font-weight: 600; }
 
 .rating-bars { flex-grow: 1; }
-.bar-item { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #666; margin-bottom: 4px; }
-.bar-bg { flex-grow: 1; height: 6px; background: #eee; border-radius: 3px; }
-.bar-fill { height: 100%; background: #ff9f43; border-radius: 3px; }
-.bar-num { width: 20px; text-align: right; color: #ccc; }
+.bar-item { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #718096; margin-bottom: 6px; font-weight: 600; }
+.bar-bg { flex-grow: 1; height: 8px; background: #edf2f7; border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; background: #004ea2; border-radius: 4px; }
 
-.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
-
-.star-rating-input { display: flex; gap: 8px; margin-bottom: 10px; }
+.star-rating-input { display: flex; gap: 10px; margin-bottom: 20px; border: none; padding: 0; }
 .star-label { cursor: pointer; }
-.star-label input { position: absolute; opacity: 0; width: 1px; height: 1px; overflow: hidden; }
-.star { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; background: #f3f4f6; transition: background 0.2s; }
-.star:hover,
-.star:focus-visible { background: #e2e8f0; outline: none; }
+.star-num { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: #f7fafc; color: #a0aec0; font-weight: 800; transition: all 0.2s; border: 2px solid transparent; }
+.star-num.active { background: #004ea2; color: white; box-shadow: 0 4px 10px rgba(0,78,162,0.2); }
+.star-num:hover { transform: translateY(-2px); }
 
-.form-status { margin-top: 12px; color: #4e73df; font-size: 14px; min-height: 1.2em; }
+textarea { width: 100%; height: 120px; border: 2px solid transparent; background: #f7fafc; border-radius: 16px; padding: 20px; margin: 16px 0; box-sizing: border-box; resize: none; font-size: 15px; outline: none; transition: all 0.2s; }
+textarea:focus { background: white; border-color: #004ea2; }
+.submit-btn { width: 100%; background: #004ea2; color: white; border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 16px; cursor: pointer; transition: all 0.2s; }
+.submit-btn:hover { background: #003a85; transform: translateY(-2px); }
 
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; border-top: 1px solid #f1f1f1; padding-top: 20px; }
-.stat-card { background: #f8f9fa; padding: 15px 5px; border-radius: 10px; text-align: center; }
-.stat-card strong { display: block; font-size: 18px; color: #333; }
-.stat-card span { font-size: 12px; color: #888; }
+.review-list { display: flex; flex-direction: column; gap: 20px; }
+.review-item { border-bottom: 1px solid #f7fafc; padding-bottom: 20px; }
+.review-item:last-child { border-bottom: none; }
+.review-user { display: flex; align-items: center; margin-bottom: 12px; }
+.user-info { display: flex; flex-direction: column; }
+.username { font-weight: 700; font-size: 15px; color: #1a202c; }
+.user-info time { font-size: 12px; color: #a0aec0; font-weight: 500; }
+.item-rating { margin-left: auto; font-weight: 800; color: #004ea2; font-size: 14px; background: #eef2ff; padding: 4px 10px; border-radius: 8px; }
+.delete-review-btn { margin-left: 12px; background: white; color: #e53e3e; border: 1px solid #fed7d7; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; }
+.review-text { font-size: 15px; line-height: 1.7; color: #4a5568; margin: 0; font-weight: 400; }
 
-.empty-text { color: #bbb; font-size: 14px; text-align: center; padding: 10px 0; }
-.empty-reviews { text-align: center; padding: 50px 0; color: #adb5bd; line-height: 1.6; }
-
-.star-rating-input { font-size: 24px; margin-bottom: 10px; cursor: pointer; }
-textarea { width: 100%; height: 100px; border: 1px solid #eee; border-radius: 10px; padding: 15px; margin: 15px 0; box-sizing: border-box; resize: none; background: #f8f9fa; }
-.submit-btn { width: 100%; background: #4e73df; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-
-.review-item { border-bottom: 1px solid #eee; padding: 20px 0; text-align: left; }
-.review-user { display: flex; align-items: center; margin-bottom: 10px; }
-.user-avatar { font-size: 20px; margin-right: 10px; }
-.user-info span { font-size: 12px; color: #adb5bd; }
-.item-rating { margin-left: auto; font-weight: bold; color: #ff9f43; }
-.review-text { font-size: 14px; line-height: 1.6; color: #444; margin: 0; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 </style>
