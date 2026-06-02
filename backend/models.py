@@ -44,8 +44,9 @@ class Lecture(SQLModel, table=True):
     lecture_name: str
     professor_name: str
     department: str
+    category: Optional[str] = Field(default=None, nullable=True)  # 학부
     class_time: Optional[str] = Field(default=None, nullable=True) # 강의 시간 추가
-    
+
     # 관계 설정: 강의에 달린 리뷰들을 바로 참조 가능
     reviews: List["Review"] = Relationship(back_populates="lecture")
 
