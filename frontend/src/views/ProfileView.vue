@@ -41,14 +41,84 @@
           </div>
         </section>
 
-        <!-- 내 시간표 (준비 중) -->
+        <!-- 내 시간표 -->
         <section class="section-card timetable-section">
+          <TimetableGrid />
+        </section>
+
+        <!-- 친구 검색 -->
+        <section class="section-card">
           <div class="card-header">
-            <h3>📅 나의 시간표</h3>
-            <button class="manage-btn">설정</button>
+            <h3>🔍 친구 추가</h3>
           </div>
-          <div class="empty-timetable">
-            <p>아직 등록된 강의가 없습니다.<br>수강평을 보고 내 시간표에 담아보세요!</p>
+          <div class="search-row">
+            <input
+              v-model="friendQuery"
+              class="friend-input"
+              type="text"
+              placeholder="username으로 검색..."
+              @keydown.enter="searchFriends"
+            />
+            <button class="search-btn" @click="searchFriends">검색</button>
+          </div>
+          <div v-if="searchResults.length" class="search-results">
+            <div v-for="u in searchResults" :key="u.user_id" class="search-result-item">
+              <div class="fr-avatar">👤</div>
+              <div class="fr-info">
+                <span class="fr-name">{{ u.username }}</span>
+                <span class="fr-meta">{{ u.grade ? u.grade + '학년' : '' }}</span>
+              </div>
+              <button
+                v-if="u.friendship_status === 'none'"
+                class="fr-btn"
+                @click="sendRequest(u.username, u.user_id)"
+              >요청 보내기</button>
+              <span v-else-if="u.friendship_status === 'sent'" class="fr-btn sent">요청됨</span>
+              <span v-else-if="u.friendship_status === 'friends'" class="fr-btn friends">친구</span>
+              <span v-else-if="u.friendship_status === 'received'" class="fr-btn received">받은 요청</span>
+            </div>
+          </div>
+          <p v-else-if="searched" class="empty-msg">검색 결과가 없어요</p>
+        </section>
+
+        <!-- 받은 친구 요청 -->
+        <section class="section-card" v-if="receivedRequests.length">
+          <div class="card-header">
+            <h3>📬 받은 친구 요청</h3>
+            <span class="req-count-badge">{{ receivedRequests.length }}</span>
+          </div>
+          <div v-for="req in receivedRequests" :key="req.friendship_id" class="request-item">
+            <div class="fr-avatar">👤</div>
+            <div class="fr-info">
+              <span class="fr-name">{{ req.username }}</span>
+              <span class="fr-meta">{{ req.grade ? req.grade + '학년' : '' }}</span>
+            </div>
+            <div class="req-actions">
+              <button class="btn-accept" @click="acceptRequest(req.friendship_id)">수락</button>
+              <button class="btn-reject" @click="declineRequest(req.friendship_id)">거절</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 친구 목록 -->
+        <section class="section-card">
+          <div class="card-header">
+            <h3>👥 내 친구 <span class="friend-count">{{ friends.length }}명</span></h3>
+          </div>
+          <div v-if="friends.length" class="friend-grid">
+            <div
+              v-for="f in friends"
+              :key="f.user_id"
+              class="friend-card"
+              @click="$router.push(`/friends/${f.user_id}`)"
+            >
+              <div class="fc-avatar">👤</div>
+              <div class="fc-name">{{ f.username }}</div>
+              <div class="fc-grade">{{ f.grade ? f.grade + '학년' : '' }}</div>
+            </div>
+          </div>
+          <div v-else class="empty-friends">
+            <p>아직 친구가 없어요.<br>위에서 username으로 검색해 친구를 추가해보세요!</p>
           </div>
         </section>
 
@@ -106,19 +176,29 @@
 
 <script>
 import axios from "axios";
+import TimetableGrid from "@/components/TimetableGrid.vue";
 
 export default {
+  components: { TimetableGrid },
   data() {
     return {
       profile: null,
       loading: true,
       saving: false,
       statusMessage: "",
-      statusType: "success"
+      statusType: "success",
+      // 친구
+      friendQuery: "",
+      searchResults: [],
+      searched: false,
+      receivedRequests: [],
+      friends: [],
     }
   },
   async created() {
     this.fetchProfile();
+    this.fetchFriends();
+    this.fetchReceivedRequests();
   },
   methods: {
     async fetchProfile() {
@@ -159,7 +239,70 @@ export default {
       localStorage.removeItem("token");
       localStorage.removeItem("isAdmin");
       this.$router.push("/login");
-    }
+    },
+
+    // ── 친구 ────────────────────────────────────────────
+    async fetchFriends() {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const res = await axios.get("http://127.0.0.1:8000/friends/me", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        this.friends = res.data;
+      } catch {}
+    },
+    async fetchReceivedRequests() {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const res = await axios.get("http://127.0.0.1:8000/friends/requests", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        this.receivedRequests = res.data;
+      } catch {}
+    },
+    async searchFriends() {
+      if (!this.friendQuery.trim()) return;
+      const token = localStorage.getItem("token");
+      try {
+        const res = await axios.get(`http://127.0.0.1:8000/friends/search?q=${encodeURIComponent(this.friendQuery)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        this.searchResults = res.data;
+        this.searched = true;
+      } catch {}
+    },
+    async sendRequest(username, userId) {
+      const token = localStorage.getItem("token");
+      try {
+        await axios.post("http://127.0.0.1:8000/friends/request",
+          { username },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const u = this.searchResults.find(r => r.user_id === userId);
+        if (u) u.friendship_status = "sent";
+      } catch {}
+    },
+    async acceptRequest(friendshipId) {
+      const token = localStorage.getItem("token");
+      try {
+        await axios.put(`http://127.0.0.1:8000/friends/request/${friendshipId}/accept`, {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        this.receivedRequests = this.receivedRequests.filter(r => r.friendship_id !== friendshipId);
+        await this.fetchFriends();
+      } catch {}
+    },
+    async declineRequest(friendshipId) {
+      const token = localStorage.getItem("token");
+      try {
+        await axios.delete(`http://127.0.0.1:8000/friends/request/${friendshipId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        this.receivedRequests = this.receivedRequests.filter(r => r.friendship_id !== friendshipId);
+      } catch {}
+    },
   }
 }
 </script>
@@ -250,4 +393,56 @@ input:focus, select:focus { border-color: #004ea2; background: white; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.5s; }
 .fade-enter, .fade-leave-to { opacity: 0; }
+
+/* ── 친구 공통 ── */
+.search-row { display: flex; gap: 8px; }
+.friend-input {
+  flex: 1; background: #f7fafc; border: 2px solid transparent;
+  border-radius: 14px; padding: 12px 16px; font-size: 15px; outline: none; transition: all 0.2s;
+}
+.friend-input:focus { border-color: #004ea2; background: white; }
+.search-btn {
+  background: #004ea2; color: white; border: none;
+  padding: 12px 20px; border-radius: 14px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.2s;
+}
+.search-btn:hover { background: #003a85; }
+
+.search-results { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.search-result-item, .request-item {
+  display: flex; align-items: center; gap: 12px;
+  background: #f8fbff; border-radius: 14px; padding: 12px 14px;
+  border: 1px solid #edf2f7;
+}
+.request-item { background: white; border-bottom: 1px solid #f7fafc; border-radius: 0; padding: 12px 0; }
+.request-item:last-child { border-bottom: none; }
+
+.fr-avatar { width: 38px; height: 38px; border-radius: 14px; background: #eef2ff; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.fr-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.fr-name { font-size: 14px; font-weight: 700; color: #1a202c; }
+.fr-meta { font-size: 12px; color: #a0aec0; }
+
+.fr-btn { background: #004ea2; color: white; border: none; padding: 7px 14px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.fr-btn.sent { background: #edf2f7; color: #718096; cursor: default; }
+.fr-btn.friends { background: #f0fff4; color: #38a169; cursor: default; border: 1px solid #c6f6d5; }
+.fr-btn.received { background: #fef3c7; color: #92400e; cursor: default; }
+
+.req-count-badge { background: #e53e3e; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.req-actions { display: flex; gap: 6px; margin-left: auto; }
+.btn-accept { background: #004ea2; color: white; border: none; padding: 7px 14px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.btn-reject { background: #fff5f5; color: #e53e3e; border: 1px solid #fed7d7; padding: 7px 14px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+.friend-count { font-size: 14px; color: #a0aec0; font-weight: 400; margin-left: 4px; }
+.friend-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.friend-card {
+  background: #f8fbff; border-radius: 16px; padding: 16px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  border: 1px solid #edf2f7; cursor: pointer; transition: all 0.2s;
+}
+.friend-card:hover { border-color: #004ea2; box-shadow: 0 4px 12px rgba(0,78,162,0.1); transform: translateY(-2px); }
+.fc-avatar { width: 44px; height: 44px; border-radius: 16px; background: #eef2ff; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.fc-name { font-size: 13px; font-weight: 700; color: #1a202c; text-align: center; }
+.fc-grade { font-size: 11px; color: #a0aec0; }
+
+.empty-friends { text-align: center; padding: 30px 0; color: #a0aec0; font-size: 14px; line-height: 1.8; border: 2px dashed #f7fafc; border-radius: 16px; }
+.empty-msg { text-align: center; padding: 16px 0; color: #a0aec0; font-size: 13px; }
 </style>

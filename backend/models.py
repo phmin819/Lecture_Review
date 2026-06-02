@@ -49,7 +49,36 @@ class Lecture(SQLModel, table=True):
     # 관계 설정: 강의에 달린 리뷰들을 바로 참조 가능
     reviews: List["Review"] = Relationship(back_populates="lecture")
 
-# --- 3. Review 관련 모델 ---
+# --- 3. TimetableEntry 관련 모델 ---
+class TimetableEntry(SQLModel, table=True):
+    __tablename__ = "timetable_entries"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.user_id")
+    day: str              # "월", "화", "수", "목", "금"
+    start_hour: int       # 9 ~ 17
+    end_hour: int         # 10 ~ 18
+    subject_name: str
+    color_bg: str = Field(default="#dbeafe")
+    color_fg: str = Field(default="#1d4ed8")
+
+class TimetableEntryCreate(SQLModel):
+    day: str
+    start_hour: int
+    end_hour: int
+    subject_name: str
+    color_bg: str = "#dbeafe"
+    color_fg: str = "#1d4ed8"
+
+# --- 4. Friendship 관련 모델 ---
+class Friendship(SQLModel, table=True):
+    __tablename__ = "friendships"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    requester_id: int = Field(foreign_key="users.user_id")
+    receiver_id: int = Field(foreign_key="users.user_id")
+    status: str = Field(default="pending")  # "pending" | "accepted"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# --- 5. Review 관련 모델 ---
 class Review(SQLModel, table=True):
     __tablename__ = "reviews"
     review_id: Optional[int] = Field(default=None, primary_key=True)
