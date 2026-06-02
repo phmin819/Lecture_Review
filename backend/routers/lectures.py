@@ -8,15 +8,18 @@ from typing import Optional
 router = APIRouter(prefix="/lectures", tags=["lectures"])
 
 @router.get("")
-def read_lectures(search: Optional[str] = None, session: Session = Depends(get_session)):
-    # 최적화: SQL Join 및 Aggregation을 사용하여 N+1 문제 해결
-    # 평점 높은 순으로 정렬 추가
+def read_lectures(
+    search: Optional[str] = None,
+    department: Optional[str] = None,
+    session: Session = Depends(get_session)
+):
     statement = (
         select(
             Lecture.lecture_id,
             Lecture.lecture_name,
             Lecture.professor_name,
             Lecture.department,
+            Lecture.category,
             func.count(Review.review_id).label("review_count"),
             func.avg(Review.rating).label("avg_rating")
         )
@@ -24,21 +27,25 @@ def read_lectures(search: Optional[str] = None, session: Session = Depends(get_s
         .group_by(Lecture.lecture_id)
         .order_by(func.avg(Review.rating).desc().nulls_last(), Lecture.lecture_name.asc())
     )
-    
+
     if search:
         statement = statement.where(
-            (Lecture.lecture_name.contains(search)) | 
+            (Lecture.lecture_name.contains(search)) |
             (Lecture.professor_name.contains(search))
         )
-        
+
+    if department:
+        statement = statement.where(Lecture.department == department)
+
     results = session.exec(statement).all()
-    
+
     return [
         {
             "lecture_id": r.lecture_id,
             "lecture_name": r.lecture_name,
             "professor_name": r.professor_name,
             "department": r.department,
+            "category": r.category,
             "review_count": r.review_count,
             "avg_rating": round(float(r.avg_rating), 1) if r.avg_rating else 0
         }
@@ -78,6 +85,24 @@ def get_trending_lectures(session: Session = Depends(get_session)):
         for r in results
     ]
 
+@router.get("/faculties")
+def get_faculties(session: Session = Depends(get_session)):
+    statement = select(Lecture.category, Lecture.department).distinct()
+    results = session.exec(statement).all()
+
+    faculty_map: dict = {}
+    for row in results:
+        faculty = row.category or "기타"
+        dept = row.department
+        if faculty not in faculty_map:
+            faculty_map[faculty] = set()
+        faculty_map[faculty].add(dept)
+
+    return [
+        {"faculty": faculty, "departments": sorted(list(depts))}
+        for faculty, depts in sorted(faculty_map.items())
+    ]
+
 @router.get("/{lecture_id}/reviews")
 def get_lecture_reviews(lecture_id: int, session: Session = Depends(get_session)):
     # 리뷰와 작성자 정보를 함께 가져옴
@@ -108,7 +133,8 @@ def read_lecture_detail(lecture_id: int, session: Session = Depends(get_session)
             Lecture.lecture_name,
             Lecture.professor_name,
             Lecture.department,
-            Lecture.class_time, # 추가
+            Lecture.category,
+            Lecture.class_time,
             func.count(Review.review_id).label("review_count"),
             func.avg(Review.rating).label("avg_rating")
         )
@@ -116,17 +142,18 @@ def read_lecture_detail(lecture_id: int, session: Session = Depends(get_session)
         .where(Lecture.lecture_id == lecture_id)
         .group_by(Lecture.lecture_id)
     )
-    
+
     result = session.exec(statement).first()
     if not result:
         raise HTTPException(status_code=404, detail="강의를 찾을 수 없습니다.")
-        
+
     return {
         "lecture_id": result.lecture_id,
         "lecture_name": result.lecture_name,
         "professor_name": result.professor_name,
         "department": result.department,
-        "class_time": result.class_time, # 추가
+        "category": result.category,
+        "class_time": result.class_time,
         "review_count": result.review_count,
         "avg_rating": round(float(result.avg_rating), 1) if result.avg_rating else 0
     }
