@@ -15,7 +15,17 @@
       </div>
     </header>
 
-    <main class="container" v-if="lecture">
+    <div v-if="loading" class="loading-container" role="status">
+      <div class="spinner"></div>
+      <p class="loading-text">불러오는 중...</p>
+    </div>
+
+    <div v-else-if="error" class="error-container">
+      <p class="error-text">{{ error }}</p>
+      <button class="retry-btn" @click="fetchLectureData">다시 시도</button>
+    </div>
+
+    <main class="container" v-else-if="lecture">
       <section class="card info-section">
         <div class="badge-row">
           <span class="dept-badge">{{ lecture.department }}</span>
@@ -163,7 +173,9 @@ export default {
       formStatus: "",
       isLoggedIn: false,
       isAdmin: false,
-      isEditing: false, // 수정 모드 여부
+      isEditing: false,
+      loading: true,
+      error: null,
       editData: {
         lecture_name: "",
         professor_name: "",
@@ -175,19 +187,40 @@ export default {
   async created() {
     this.isLoggedIn = !!localStorage.getItem("token");
     this.isAdmin = localStorage.getItem("isAdmin") === "true";
-    this.fetchLectureData();
+    await this.fetchLectureData();
+  },
+  watch: {
+    '$route.params.id'() {
+      this.fetchLectureData();
+    }
   },
   methods: {
+    async fetchLectureData() {
+      this.loading = true;
+      this.error = null;
+      this.lecture = null;
+      const lectureId = this.$route.params.id;
+      try {
+        const res = await axios.get(`http://127.0.0.1:8000/lectures/${lectureId}`);
+        this.lecture = res.data;
+        const revRes = await axios.get(`http://127.0.0.1:8000/lectures/${lectureId}/reviews`);
+        this.reviews = revRes.data;
+      } catch (err) {
+        console.error("데이터 로드 실패", err);
+        this.error = "강의 정보를 불러오는 데 실패했습니다.";
+      } finally {
+        this.loading = false;
+      }
+    },
     async deleteReview(reviewId) {
       if (!confirm("정말로 이 리뷰를 삭제하시겠습니까?")) return;
-      
       const token = localStorage.getItem("token");
       try {
         await axios.delete(`http://127.0.0.1:8000/reviews/${reviewId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         alert("리뷰가 삭제되었습니다.");
-        await this.fetchLectureData(); // 목록 새로고침
+        await this.fetchLectureData();
       } catch (err) {
         console.error("리뷰 삭제 실패:", err);
         alert(err.response?.data?.detail || "리뷰 삭제 중 오류가 발생했습니다.");
@@ -217,18 +250,6 @@ export default {
         alert("수정 중 오류가 발생했습니다.");
       }
     },
-    async fetchLectureData() {
-      const lectureId = this.$route.params.id;
-      try {
-        const res = await axios.get(`http://127.0.0.1:8000/lectures/${lectureId}`);
-        this.lecture = res.data;
-        
-        const revRes = await axios.get(`http://127.0.0.1:8000/lectures/${lectureId}/reviews`);
-        this.reviews = revRes.data;
-      } catch (err) {
-        console.error("데이터 로드 실패", err);
-      }
-    },
     getStarDisplay(rating) {
       const fullStars = Math.floor(rating || 0);
       const hasHalfStar = (rating || 0) % 1 >= 0.5;
@@ -242,8 +263,7 @@ export default {
     },
     getRatingBarWidth(ratingScore) {
       if (this.reviews.length === 0) return 0;
-      const count = this.getRatingCount(ratingScore);
-      return (count / this.reviews.length) * 100;
+      return (this.getRatingCount(ratingScore) / this.reviews.length) * 100;
     },
     formatDate(dateStr) {
       if (!dateStr) return "";
@@ -252,54 +272,24 @@ export default {
     },
     async submitReview() {
       const token = localStorage.getItem("token");
-      if (!token) {
-        this.formStatus = "로그인이 필요한 기능입니다.";
-        return;
-      }
-      if (!this.newReview.trim()) {
-        this.formStatus = "후기 내용을 입력해 주세요.";
-        return;
-      }
-      
+      if (!token) { this.formStatus = "로그인이 필요한 기능입니다."; return; }
+      if (!this.newReview.trim()) { this.formStatus = "후기 내용을 입력해 주세요."; return; }
       try {
         this.formStatus = "리뷰 등록 중입니다...";
-        
         const lectureId = this.$route.params.id;
-        const reviewData = {
-          rating: this.rating,
-          content: this.newReview,
-          lecture_id: parseInt(lectureId)
-        };
-        
         await axios.post(
           "http://127.0.0.1:8000/reviews",
-          reviewData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json"
-            }
-          }
+          { rating: this.rating, content: this.newReview, lecture_id: parseInt(lectureId) },
+          { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
         );
-        
-        // 리뷰 등록 성공 후 전체 데이터 다시 불러오기 (평점 포함)
         this.formStatus = "✓ 리뷰가 등록되었습니다!";
         await this.fetchLectureData();
-        
-        // 폼 초기화
-        setTimeout(() => {
-          this.newReview = "";
-          this.rating = 5;
-          this.formStatus = "";
-        }, 1500);
-        
+        setTimeout(() => { this.newReview = ""; this.rating = 5; this.formStatus = ""; }, 1500);
       } catch (err) {
         console.error("리뷰 등록 실패:", err);
-        if (err.response?.status === 401) {
-          this.formStatus = "로그인이 필요합니다.";
-        } else {
-          this.formStatus = "리뷰 등록 중 오류가 발생했습니다. 다시 시도해주세요.";
-        }
+        this.formStatus = err.response?.status === 401
+          ? "로그인이 필요합니다."
+          : "리뷰 등록 중 오류가 발생했습니다.";
       }
     }
   }
@@ -373,4 +363,11 @@ textarea:focus { background: white; border-color: #004ea2; }
 .review-text { font-size: 15px; line-height: 1.7; color: #4a5568; margin: 0; font-weight: 400; }
 
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+.loading-container { display: flex; flex-direction: column; align-items: center; margin-top: 80px; }
+.spinner { width: 40px; height: 40px; border: 4px solid #edf2f7; border-top: 4px solid #004ea2; border-radius: 50%; animation: spin 1s linear infinite; }
+.loading-text { margin-top: 16px; color: #004ea2; font-weight: 700; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-container { text-align: center; margin-top: 80px; }
+.error-text { color: #e53e3e; font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+.retry-btn { background: #004ea2; color: white; border: none; padding: 12px 24px; border-radius: 12px; cursor: pointer; font-weight: 700; }
 </style>
